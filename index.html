@@ -1,0 +1,404 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!-- SSI-REF: 261027-Nick -->
+<title>Box Request Builder</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Layout: single column, form panel above a live request preview, max 760px */
+  :root{
+    --bg:#eceff1; --surface:#ffffff; --surface-2:#f4f7f8;
+    --ink:#0f2029; --muted:#5a6d79; --line:#ccd7dd;
+    --accent:#08415c; --accent-2:#467886;
+    --ok:#1b6b47; --warn:#8a5608; --bad:#962719;
+    --font-display:"Barlow Condensed",Arial Narrow,sans-serif;
+    --font-body:"IBM Plex Sans",-apple-system,Segoe UI,sans-serif;
+    --font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0a161d; --surface:#12232e; --surface-2:#0e1d26;
+      --ink:#e4edf1; --muted:#90a6b2; --line:#24404f;
+      --accent:#7cc0d6; --accent-2:#4e94a6;
+      --ok:#5ccb97; --warn:#e2a945; --bad:#f08273;
+      color-scheme:dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0a161d; --surface:#12232e; --surface-2:#0e1d26;
+    --ink:#e4edf1; --muted:#90a6b2; --line:#24404f;
+    --accent:#7cc0d6; --accent-2:#4e94a6;
+    --ok:#5ccb97; --warn:#e2a945; --bad:#f08273;
+    color-scheme:dark;
+  }
+
+  body{background:var(--bg);color:var(--ink);font-family:var(--font-body);line-height:1.5;}
+  .wrap{
+    max-width:760px;margin:0 auto;
+    padding-left:max(16px,env(safe-area-inset-left,0px));
+    padding-right:max(16px,env(safe-area-inset-right,0px));
+    padding-block:28px 48px;
+    display:flex;flex-direction:column;gap:22px;
+  }
+
+  header{display:flex;flex-direction:column;gap:6px;border-bottom:3px solid var(--accent);padding-bottom:12px;}
+  h1{font-family:var(--font-display);font-size:2.4rem;line-height:1;letter-spacing:.01em;
+     text-transform:uppercase;margin:0;text-wrap:balance;}
+  .sub{color:var(--muted);font-size:.92rem;margin:0;}
+
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:20px;
+         display:flex;flex-direction:column;gap:18px;}
+  .panel h2{font-family:var(--font-display);text-transform:uppercase;letter-spacing:.06em;
+            font-size:1.15rem;margin:0;color:var(--accent-2);}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media (max-width:560px){ .grid{grid-template-columns:1fr;} }
+  .field{display:flex;flex-direction:column;gap:5px;min-width:0;}
+  .field.full{grid-column:1/-1;}
+  label{font-size:.78rem;text-transform:uppercase;letter-spacing:.07em;font-weight:600;color:var(--muted);}
+  label .req{color:var(--bad);margin-left:3px;}
+  input[type=text],input[type=number],input[type=date],textarea,select{
+    font:inherit;font-size:.95rem;color:var(--ink);background:var(--surface-2);
+    border:1px solid var(--line);border-radius:3px;padding:9px 10px;width:100%;min-width:0;
+  }
+  input[type=text].mono,input[type=number]{font-family:var(--font-mono);font-variant-numeric:tabular-nums;}
+  textarea{resize:vertical;min-height:64px;}
+  input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{
+    outline:2px solid var(--accent-2);outline-offset:2px;
+  }
+  .hint{font-size:.76rem;color:var(--muted);}
+  .err{font-size:.78rem;color:var(--bad);font-weight:500;}
+  .field.bad input,.field.bad textarea{border-color:var(--bad);}
+
+  .check{display:flex;gap:10px;align-items:flex-start;background:var(--surface-2);
+         border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:3px;padding:12px;}
+  .check input{margin-top:3px;width:18px;height:18px;flex:none;accent-color:var(--accent-2);}
+  .check label{text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--ink);font-weight:500;}
+  .check .hint{display:block;margin-top:3px;font-weight:400;}
+  .check.bad{border-left-color:var(--bad);}
+
+  .preview-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .chip{font-family:var(--font-mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;
+        border:1px solid var(--line);border-radius:2px;padding:2px 7px;color:var(--muted);}
+  .chip.live{color:var(--ok);border-color:var(--ok);}
+  pre.out{font-family:var(--font-mono);font-size:.84rem;line-height:1.65;background:var(--surface-2);
+          border:1px solid var(--line);border-radius:3px;padding:14px;margin:0;
+          overflow-x:auto;white-space:pre-wrap;word-break:break-word;}
+  pre.out.example{color:var(--muted);}
+
+  .actions{display:flex;flex-wrap:wrap;gap:10px;}
+  button,a.btn{font-family:var(--font-body);font-size:.9rem;font-weight:600;cursor:pointer;
+    border-radius:3px;padding:10px 16px;border:1px solid var(--accent);text-decoration:none;display:inline-block;}
+  button.primary{background:var(--accent);color:var(--surface);}
+  :root[data-theme="dark"] button.primary,
+  :root:not([data-theme="light"]) button.primary{color:#0a161d;}
+  @media (prefers-color-scheme: light){ :root:not([data-theme="dark"]) button.primary{color:#ffffff;} }
+  button.ghost,a.btn{background:transparent;color:var(--accent);}
+  button.quiet{background:transparent;color:var(--muted);border-color:var(--line);}
+
+  .status{font-size:.86rem;min-height:1.2em;font-weight:500;}
+  .status.ok{color:var(--ok);} .status.bad{color:var(--bad);}
+
+  .send{display:flex;flex-direction:column;gap:14px;}
+  .route{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:14px;}
+  .route:first-child{border-top:none;padding-top:0;}
+  .route .name{font-family:var(--font-display);text-transform:uppercase;letter-spacing:.06em;font-size:1rem;}
+  .addr{font-family:var(--font-mono);font-size:.82rem;color:var(--muted);user-select:all;word-break:break-all;}
+
+  footer{color:var(--muted);font-size:.76rem;border-top:1px solid var(--line);padding-top:12px;}
+  footer p{margin:0 0 4px;}
+  @media (prefers-reduced-motion:no-preference){ .status{transition:color .15s ease;} }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Box Request Builder</h1>
+    <p class="sub">Every box request needs all five items before production can run it. Fill the form, copy the request, send it to the Imagine chat or to Nick Baranauskas.</p>
+  </header>
+
+  <form class="panel" id="form" novalidate>
+    <h2>Request details</h2>
+    <div class="grid">
+      <div class="field" id="f-part">
+        <label for="part">SSI part number <span class="req">*</span></label>
+        <input type="text" id="part" class="mono" placeholder="15748-1400" autocomplete="off">
+        <span class="err" id="e-part" hidden></span>
+      </div>
+
+      <div class="field" id="f-qty">
+        <label for="qty">Quantity <span class="req">*</span></label>
+        <input type="number" id="qty" min="1" step="1" placeholder="250" autocomplete="off">
+        <span class="err" id="e-qty" hidden></span>
+      </div>
+
+      <div class="field" id="f-due">
+        <label for="due">Due date <span class="req">*</span></label>
+        <input type="date" id="due">
+        <span class="hint" id="due-hint"></span>
+        <span class="err" id="e-due" hidden></span>
+      </div>
+
+      <div class="field" id="f-cust">
+        <label for="cust">Customer <span class="req">*</span></label>
+        <input type="text" id="cust" placeholder="Imagine" autocomplete="off">
+        <span class="err" id="e-cust" hidden></span>
+      </div>
+
+      <div class="field full" id="f-by">
+        <label for="by">Requested by <span class="req">*</span></label>
+        <input type="text" id="by" placeholder="Your name" autocomplete="off">
+        <span class="err" id="e-by" hidden></span>
+      </div>
+
+      <div class="field full">
+        <label for="notes">Notes (optional)</label>
+        <textarea id="notes" placeholder="Anything production should know: ship-with order, special material, partial OK."></textarea>
+      </div>
+    </div>
+
+    <div class="check" id="f-bom">
+      <input type="checkbox" id="bom">
+      <label for="bom">BOM is set up in Acumatica for this part
+        <span class="hint">The BOM is what tells production whether this runs from stock sheets or waits for North Star scored sheets. Set it up before you send the request.</span>
+      </label>
+    </div>
+    <span class="err" id="e-bom" hidden></span>
+  </form>
+
+  <section class="panel">
+    <div class="preview-head">
+      <h2>Request</h2>
+      <span class="chip" id="chip">Example</span>
+    </div>
+    <pre class="out example" id="out"></pre>
+    <div class="actions">
+      <button type="button" class="primary" id="copy">Copy request</button>
+      <button type="button" class="quiet" id="reset">Clear form</button>
+    </div>
+    <p class="status" id="status" role="status"></p>
+  </section>
+
+  <section class="panel send">
+    <h2>Where to send it</h2>
+
+    <div class="route">
+      <span class="name">Imagine group chat</span>
+      <p class="hint">Copy the request first, then open the chat and paste. Teams may not open from this page on every device — if nothing happens, open Teams yourself.</p>
+      <div class="actions">
+        <button type="button" class="ghost" id="teams">Copy and open Teams</button>
+      </div>
+    </div>
+
+    <div class="route">
+      <span class="name">Email to production</span>
+      <p class="hint">Goes to SSI Production, Davis Schlafke and Nick Baranauskas. Opens a pre-filled draft in your mail app. Nothing sends until you press Send. If the draft does not open, copy the request and paste it into a new email.</p>
+      <div class="actions">
+        <button type="button" class="ghost" id="mail">Open email draft</button>
+      </div>
+      <span class="addr">production@shippers-supply.com, dschlafke@shippers-supply.com, NBaranauskas@shippers-supply.com</span>
+    </div>
+  </section>
+
+  <footer>
+    <p>Required information comes from Nick Baranauskas, 2026-10-22. One-business-day notice comes from his 2026-10-19 note on the Monkey Wrench boxes.</p>
+    <p>The date check counts weekends only. Add time yourself around holidays and shutdowns.</p>
+    <p>SSI-REF: 261027-Nick</p>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var fields = ["part","qty","due","cust","by","notes"];
+  var EXAMPLE =
+    "BOX MAKING REQUEST\n\n" +
+    "SSI part number : 15748-1400\n" +
+    "Quantity        : 250\n" +
+    "Due date        : Friday, October 30, 2026\n" +
+    "Customer        : Imagine\n" +
+    "BOM in Acumatica: Set up and confirmed\n" +
+    "Requested by    : Nick Searle\n\n" +
+    "Notes: Ship with PO 244742.";
+
+  var TEAMS_URL = "https://teams.microsoft.com/l/chat/19%3A8e946116c1744d668fa4e0adc71155f1%40thread.v2/conversations";
+  var MAIL_TO = "production@shippers-supply.com,dschlafke@shippers-supply.com,NBaranauskas@shippers-supply.com";
+
+  // ---- business-day math -------------------------------------------------
+  function startOfDay(d){ var x = new Date(d); x.setHours(0,0,0,0); return x; }
+  function nextBusinessDay(d){
+    var x = startOfDay(d);
+    do { x.setDate(x.getDate() + 1); } while (x.getDay() === 0 || x.getDay() === 6);
+    return x;
+  }
+  function toISO(d){
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+  function parseISO(s){
+    var p = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || "");
+    if (!p) return null;
+    return new Date(Number(p[1]), Number(p[2]) - 1, Number(p[3]));
+  }
+  function longDate(d){
+    return d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"});
+  }
+
+  var earliest = nextBusinessDay(new Date());
+  $("due").min = toISO(earliest);
+  $("due-hint").textContent = "Earliest allowed: " + longDate(earliest) + ". Production needs one full business day.";
+
+  // ---- remember the requester name (per-browser convenience) -------------
+  try { var saved = localStorage.getItem("ssi-box-requester"); if (saved) $("by").value = saved; } catch(e){}
+
+  // ---- build the request text -------------------------------------------
+  function values(){
+    var due = parseISO($("due").value);
+    return {
+      part: $("part").value.trim(),
+      qty: $("qty").value.trim(),
+      cust: $("cust").value.trim(),
+      by: $("by").value.trim(),
+      notes: $("notes").value.trim(),
+      due: due,
+      bom: $("bom").checked
+    };
+  }
+  function anyInput(v){
+    return !!(v.part || v.qty || v.cust || v.notes || v.due || v.bom || ($("by").value.trim() && !savedName()));
+  }
+  function savedName(){
+    try { return localStorage.getItem("ssi-box-requester") || ""; } catch(e){ return ""; }
+  }
+  function build(v){
+    var lines = [
+      "BOX MAKING REQUEST",
+      "",
+      "SSI part number : " + (v.part || "—"),
+      "Quantity        : " + (v.qty || "—"),
+      "Due date        : " + (v.due ? longDate(v.due) : "—"),
+      "Customer        : " + (v.cust || "—"),
+      "BOM in Acumatica: " + (v.bom ? "Set up and confirmed" : "NOT CONFIRMED"),
+      "Requested by    : " + (v.by || "—")
+    ];
+    if (v.notes) { lines.push("", "Notes: " + v.notes); }
+    return lines.join("\n");
+  }
+  function render(){
+    var v = values();
+    var live = anyInput(v);
+    $("out").textContent = live ? build(v) : EXAMPLE;
+    $("out").classList.toggle("example", !live);
+    $("chip").textContent = live ? "Your request" : "Example";
+    $("chip").classList.toggle("live", live);
+  }
+
+  // ---- validation --------------------------------------------------------
+  function setError(key, msg){
+    var box = $("f-" + key), err = $("e-" + key);
+    if (box) box.classList.toggle("bad", !!msg);
+    if (err){ err.textContent = msg || ""; err.hidden = !msg; }
+  }
+  function validate(){
+    var v = values(), bad = [];
+    setError("part", ""); setError("qty", ""); setError("due", "");
+    setError("cust", ""); setError("by", ""); setError("bom", "");
+
+    if (!v.part){ setError("part","Enter the SSI part number."); bad.push("part"); }
+    var q = Number(v.qty);
+    if (!v.qty){ setError("qty","Enter how many you need."); bad.push("qty"); }
+    else if (!isFinite(q) || q <= 0 || Math.floor(q) !== q){ setError("qty","Quantity must be a whole number above zero."); bad.push("qty"); }
+
+    if (!v.due){ setError("due","Pick a due date."); bad.push("due"); }
+    else if (startOfDay(v.due) < earliest){
+      setError("due","Too soon. The earliest due date is " + longDate(earliest) + " — production needs one full business day.");
+      bad.push("due");
+    }
+
+    if (!v.cust){ setError("cust","Name the customer."); bad.push("cust"); }
+    if (!v.by){ setError("by","Enter your name so production knows who to ask."); bad.push("by"); }
+    if (!v.bom){ setError("bom","Set the BOM up in Acumatica first, then check this box."); bad.push("bom"); }
+
+    if (bad.length){
+      var first = $("f-" + bad[0]);
+      if (first && first.scrollIntoView) first.scrollIntoView({block:"center", behavior:"smooth"});
+      var el = first && first.querySelector("input, textarea");
+      if (el) el.focus({preventScroll:true});
+      say(bad.length === 1 ? "One item is missing or wrong. See the form above." : bad.length + " items are missing or wrong. See the form above.", "bad");
+      return null;
+    }
+    try { localStorage.setItem("ssi-box-requester", v.by); } catch(e){}
+    return v;
+  }
+
+  var timer = null;
+  function say(msg, kind){
+    var s = $("status");
+    s.textContent = msg;
+    s.className = "status" + (kind ? " " + kind : "");
+    if (timer) clearTimeout(timer);
+    if (msg) timer = setTimeout(function(){ s.textContent = ""; s.className = "status"; }, 6000);
+  }
+
+  // ---- copy --------------------------------------------------------------
+  function copyText(text, done){
+    var fallback = function(){
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly","");
+      ta.style.position = "fixed"; ta.style.top = "0"; ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select(); ta.setSelectionRange(0, text.length);
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch(e){ ok = false; }
+      if (!ok){ done(false); return; }
+      document.body.removeChild(ta);
+      done(true);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){ done(true); }, fallback);
+    } else { fallback(); }
+  }
+
+  // ---- wiring ------------------------------------------------------------
+  fields.forEach(function(id){ $(id).addEventListener("input", render); });
+  $("bom").addEventListener("change", function(){ render(); if (!$("f-bom").classList.contains("bad")) return; setError("bom",""); });
+
+  $("copy").addEventListener("click", function(){
+    var v = validate(); if (!v) return;
+    copyText(build(v), function(ok){
+      say(ok ? "Request copied. Paste it into Teams or email." : "Could not reach the clipboard. Select the request text above and copy it manually.", ok ? "ok" : "bad");
+    });
+  });
+
+  $("teams").addEventListener("click", function(){
+    var v = validate(); if (!v) return;
+    copyText(build(v), function(ok){
+      say(ok ? "Request copied. Opening Teams — paste it into the Imagine chat." : "Could not reach the clipboard. Copy the request text above, then open Teams.", ok ? "ok" : "bad");
+      var a = document.createElement("a");
+      a.href = TEAMS_URL; a.target = "_blank"; a.rel = "noopener";
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+  });
+
+  $("mail").addEventListener("click", function(){
+    var v = validate(); if (!v) return;
+    var subject = "Box request - " + v.part + " - due " + toISO(v.due);
+    var href = "mailto:" + MAIL_TO + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(build(v));
+    var a = document.createElement("a");
+    a.href = href;
+    document.body.appendChild(a); a.click(); a.remove();
+    say("Draft opening in your mail app. Nothing sends until you press Send.", "ok");
+  });
+
+  $("reset").addEventListener("click", function(){
+    $("form").reset();
+    try { var s = localStorage.getItem("ssi-box-requester"); if (s) $("by").value = s; } catch(e){}
+    ["part","qty","due","cust","by","bom"].forEach(function(k){ setError(k,""); });
+    render();
+    say("Form cleared.", "");
+    $("part").focus();
+  });
+
+  render();
+})();
+</script>
+
+</body></html>
